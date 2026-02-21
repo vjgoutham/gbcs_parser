@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GBCS Message Parser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d11;
+    --surface: #111720;
+    --surface2: #161e2a;
+    --border: #1e2c3a;
+    --border2: #263547;
+    --accent: #3d8ef0;
+    --accent-dim: rgba(61,142,240,0.12);
+    --accent-glow: rgba(61,142,240,0.25);
+    --green: #3dbb7d;
+    --green-dim: rgba(61,187,125,0.12);
+    --amber: #f0a033;
+    --amber-dim: rgba(240,160,51,0.12);
+    --red: #e05f5f;
+    --red-dim: rgba(224,95,95,0.12);
+    --purple: #9b7af0;
+    --purple-dim: rgba(155,122,240,0.12);
+    --cyan: #3dd4d4;
+    --cyan-dim: rgba(61,212,212,0.12);
+    --text: #c8d6e5;
+    --text-muted: #596e85;
+    --text-dim: #3d5066;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Subtle grid texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(61,142,240,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(61,142,240,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 24px;
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    min-height: 100vh;
+    gap: 0;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 0 20px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+  }
+
+  .logo-mark {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(61,142,240,0.3);
+  }
+
+  .header-text h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+    letter-spacing: 0.01em;
+  }
+
+  .header-text p {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+    margin-top: 1px;
+  }
+
+  .header-meta {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* Input area */
+  .input-zone {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+    transition: border-color 0.2s;
+  }
+  .input-zone:focus-within {
+    border-color: var(--border2);
+    box-shadow: 0 0 0 1px rgba(61,142,240,0.1);
+  }
+
+  .input-header {
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+  }
+
+  .input-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    flex: 1;
+  }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 5px;
+    border: 1px solid var(--border2);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .btn:hover { 
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    font-weight: 500;
+  }
+  .btn-primary:hover {
+    background: #5a9ff5;
+    border-color: #5a9ff5;
+    color: white;
+    box-shadow: 0 0 12px rgba(61,142,240,0.4);
+  }
+
+  .hex-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 14px 16px;
+    resize: vertical;
+    min-height: 100px;
+    letter-spacing: 0.08em;
+    line-height: 1.8;
+  }
+
+  .hex-input::placeholder { color: var(--text-dim); }
+
+  /* Example messages */
+  .examples {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .example-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+  .example-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .example-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  /* Results layout */
+  .results {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 16px;
+    flex: 1;
+  }
+
+  /* Sidebar - field tree */
+  .sidebar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sidebar-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 0;
+  }
+
+  .tree-item {
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: background 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+    border-left: 2px solid transparent;
+  }
+  .tree-item:hover { background: var(--surface2); }
+  .tree-item.active {
+    background: var(--accent-dim);
+    border-left-color: var(--accent);
+  }
+
+  .tree-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .tree-name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tree-bytes {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .tree-section {
+    padding: 8px 14px 3px;
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    margin-top: 4px;
+  }
+
+  /* Main content */
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Summary cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .summary-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .summary-card.blue::before { background: var(--accent); }
+  .summary-card.green::before { background: var(--green); }
+  .summary-card.amber::before { background: var(--amber); }
+  .summary-card.purple::before { background: var(--purple); }
+  .summary-card.cyan::before { background: var(--cyan); }
+  .summary-card.red::before { background: var(--red); }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .card-value {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: white;
+    word-break: break-all;
+    font-weight: 500;
+  }
+
+  .card-sub {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    font-family: var(--mono);
+  }
+
+  /* Detail panel */
+  .detail-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    flex: 1;
+  }
+
+  .detail-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .detail-title {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: white;
+    font-weight: 500;
+  }
+
+  .detail-body {
+    padding: 16px;
+    overflow-y: auto;
+    max-height: 400px;
+  }
+
+  /* Hex viewer */
+  .hex-viewer {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .hex-viewer-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+  }
+
+  .hex-viewer-body {
+    padding: 12px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.8;
+  }
+
+  .hex-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .hex-offset {
+    color: var(--text-dim);
+    flex-shrink: 0;
+    width: 40px;
+    user-select: none;
+  }
+
+  .hex-bytes {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  .hex-byte {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 1px 3px;
+    border-radius: 2px;
+    cursor: default;
+    transition: all 0.1s;
+    border: 1px solid transparent;
+  }
+
+  .hex-byte.highlight-blue { background: var(--accent-dim); color: var(--accent); border-color: rgba(61,142,240,0.3); }
+  .hex-byte.highlight-green { background: var(--green-dim); color: var(--green); border-color: rgba(61,187,125,0.3); }
+  .hex-byte.highlight-amber { background: var(--amber-dim); color: var(--amber); border-color: rgba(240,160,51,0.3); }
+  .hex-byte.highlight-purple { background: var(--purple-dim); color: var(--purple); border-color: rgba(155,122,240,0.3); }
+  .hex-byte.highlight-cyan { background: var(--cyan-dim); color: var(--cyan); border-color: rgba(61,212,212,0.3); }
+  .hex-byte.highlight-red { background: var(--red-dim); color: var(--red); border-color: rgba(224,95,95,0.3); }
+
+  /* Field table */
+  .field-table { width: 100%; border-collapse: collapse; }
+  .field-table th {
+    font-family: var(--mono);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-table td {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .field-table tr:last-child td { border-bottom: none; }
+  .field-table tr:hover td { background: var(--surface2); }
+
+  .td-name { color: var(--text-muted); width: 200px; }
+  .td-offset { color: var(--text-dim); width: 60px; }
+  .td-len { color: var(--text-dim); width: 40px; }
+  .td-hex { color: var(--accent); }
+  .td-value { color: white; }
+  .td-desc { color: var(--text-muted); font-size: 10px; }
+
+  /* State: empty */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+    gap: 12px;
+  }
+
+  .empty-icon {
+    width: 48px;
+    height: 48px;
+    border: 1px dashed var(--border2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    opacity: 0.5;
+  }
+
+  .empty-text {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  /* Error state */
+  .error-panel {
+    background: var(--red-dim);
+    border: 1px solid rgba(224,95,95,0.3);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--red);
+    margin-bottom: 12px;
+  }
+
+  /* Color legend */
+  .legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* Status indicator */
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .status-dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.err { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+  .fade-in {
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border2);
+    color: var(--text-muted);
+  }
+  .tag.command { background: var(--accent-dim); color: var(--accent); border-color: rgba(61,142,240,0.3); }
+  .tag.response { background: var(--green-dim); color: var(--green); border-color: rgba(61,187,125,0.3); }
+  .tag.alert { background: var(--amber-dim); color: var(--amber); border-color: rgba(240,160,51,0.3); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-mark">GB</div>
+    <div class="header-text">
+      <h1>GBCS Message Parser</h1>
+      <p>GB Companion Specification v4.4 · SEC Schedule 8</p>
+    </div>
+    <div class="header-meta">
+      <span class="badge">DLMS/COSEM</span>
+      <span class="badge">ZSE</span>
+      <span class="badge">ASN.1</span>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-zone">
+    <div class="input-header">
+      <span class="input-label">Hex Input — paste GBCS message bytes</span>
+      <div class="examples">
+        <span class="example-label">Examples:</span>
+        <button class="example-btn" onclick="loadExample('command')">Command</button>
+        <button class="example-btn" onclick="loadExample('response')">Response</button>
+        <button class="example-btn" onclick="loadExample('alert')">Alert</button>
+      </div>
+      <button class="btn" onclick="clearInput()">Clear</button>
+      <button class="btn btn-primary" onclick="parse()">Parse →</button>
+    </div>
+    <textarea class="hex-input" id="hexInput" placeholder="DD 00 00 00 00 00 00 11 00000000  DF 09 01 ..." spellcheck="false" rows="4"></textarea>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="resultsArea" style="display:none">
+    <!-- Sidebar tree -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="status-dot" id="statusDot"></div>
+        <span>Structure</span>
+        <span style="margin-left:auto" id="byteCount" class="tag"></span>
+      </div>
+      <div class="sidebar-body" id="treeBody"></div>
+    </div>
+
+    <!-- Main area -->
+    <div class="main">
+
+      <!-- Error -->
+      <div id="errorPanel" class="error-panel" style="display:none"></div>
+
+      <!-- Summary cards -->
+      <div class="summary-grid" id="summaryGrid"></div>
+
+      <!-- Detail table -->
+      <div class="detail-panel">
+        <div class="detail-header">
+          <span class="detail-title" id="detailTitle">Field Details</span>
+        </div>
+        <div class="detail-body" id="detailBody"></div>
+      </div>
+
+      <!-- Hex viewer -->
+      <div class="hex-viewer">
+        <div class="hex-viewer-header">Raw Bytes</div>
+        <div class="hex-viewer-body" id="hexViewerBody"></div>
+        <div class="legend" id="hexLegend"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div id="emptyState" class="results" style="grid-template-columns:1fr">
+    <div class="empty-state">
+      <div class="empty-icon">⬡</div>
+      <div class="empty-text">Paste a GBCS hex message above and click Parse<br>to decode MAC Header, Grouping Header, and Payload</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  GBCS PARSER  — SEC Schedule 8 v4.4
+// ═══════════════════════════════════════════════════════════
+
+const GBCS = {
+
+  // APDU tags
+  TAG_GENERAL_CIPHERING: 0xDD,   // 221 - MAC Header outer
+  TAG_GENERAL_SIGNING:   0xDF,   // 223 - Grouping Header
+  TAG_ACCESS_REQUEST:    0xD9,   // 217 - Command Payload
+  TAG_ACCESS_RESPONSE:   0xDA,   // 218 - Response Payload
+  TAG_DATA_NOTIFICATION: 0x0F,   // 15  - Alert Payload
+
+  // CRA Flag values
+  CRA: { 0x01: 'Command', 0x02: 'Response', 0x03: 'Alert' },
+
+  // DLMS Data tags
+  DATA_TAGS: {
+    0x00: 'null-data',
+    0x01: 'array',
+    0x02: 'structure',
+    0x03: 'boolean',
+    0x04: 'bit-string',
+    0x05: 'double-long',
+    0x06: 'double-long-unsigned',
+    0x09: 'octet-string',
+    0x0A: 'visible-string',
+    0x0C: 'date-time',
+    0x0D: 'date',
+    0x0E: 'time',
+    0x0F: 'dont-care',
+    0x10: 'long',
+    0x11: 'unsigned',
+    0x12: 'long-unsigned',
+    0x13: 'compact-array',
+    0x14: 'long64',
+    0x15: 'long64-unsigned',
+    0x16: 'enum',
+    0x17: 'float32',
+    0x18: 'float64',
+    0x19: 'date-time',
+    0x1A: 'date',
+    0x1B: 'time',
+    0x1C: 'dont-care',
+  },
+
+  // Known COSEM OIDs / class IDs
+  COSEM_CLASSES: {
+    1: 'Data',
+    3: 'Register',
+    4: 'Extended Register',
+    5: 'Demand Register',
+    7: 'Profile Generic',
+    8: 'Clock',
+    9: 'Script Table',
+    10: 'Schedule',
+    11: 'Special Days Table',
+    15: 'Association LN',
+    17: 'SAP Assignment',
+    18: 'Image Transfer',
+    20: 'Activity Calendar',
+    21: 'Register Monitor',
+    22: 'Time Push',
+    23: 'Mbus Client',
+    40: 'Push Setup',
+    41: 'TCP-UDP Setup',
+    42: 'IPv4 Setup',
+    64: 'Security Setup',
+    65: 'IEC HDLC Setup',
+    70: 'Disconnect Control',
+    71: 'Limiter',
+    111: 'ZigBee SAS Setup',
+    112: 'ZigBee SAS Join',
+    113: 'ZigBee SAS Fragmentation',
+    114: 'ZigBee Network Control',
+  },
+
+  MESSAGE_CODES: {
+    0x0001: 'CS01a - Prepayment Top Up ESME',
+    0x0002: 'CS01b - Prepayment Top Up GSME',
+    0x0003: 'CS02a - Security Credential Details',
+    0x0004: 'CS02b - Update Security Credentials',
+    0x0005: 'CS05a - Distribute Firmware CHF',
+    0x0006: 'CS05b - Distribute Firmware ESME/GSME',
+    0x0007: 'CS06  - Activate Firmware',
+    0x0100: 'ECS01 - Read ESME Billing Data',
+    0x0101: 'ECS02 - Read Tariff Switch Time',
+    0x0102: 'ECS03 - Set Billing Calandar',
+    0x0120: 'ECS100 - Command Not Supported',
+    0x0121: 'ECS101 - Future Dated Command Alert',
+    0x0122: 'ECS102 - Command Rejected',
+    0x0123: 'ECS103 - Message Too Long',
+    0x0200: 'GCS01 - Read GSME Billing Data',
+    0x0201: 'GCS02 - Read GSME Tariff Data',
+    0x0300: 'CS10  - Join Device to SMHAN',
+    0x0301: 'CS11  - Remove Device from SMHAN',
+    0x0302: 'CS12  - Restore SMHAN',
+    0x8001: 'ECS50 - Power Failure',
+    0x8002: 'ECS51 - Power Restored',
+    0x8003: 'ECS52 - Reverse Power Flow',
+    0x8100: 'GCS40 - GSME Tamper Alert',
+    0x8101: 'GCS41 - Battery Low Alert',
+    0x8F00: 'Critical Security Alert',
+  },
+
+  // Parse length encoding (BER)
+  parseLength(bytes, offset) {
+    const first = bytes[offset];
+    if (first < 0x80) {
+      return { length: first, bytesUsed: 1 };
+    } else if (first === 0x81) {
+      return { length: bytes[offset + 1], bytesUsed: 2 };
+    } else if (first === 0x82) {
+      return { length: (bytes[offset + 1] << 8) | bytes[offset + 2], bytesUsed: 3 };
+    }
+    return { length: first & 0x7F, bytesUsed: 1 }; // fallback
+  },
+
+  toHex(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+  },
+
+  toHexCompact(bytes) {
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0').toUpperCase()).join('');
+  },
+
+  formatDateTime(bytes) {
+    if (bytes.length < 12) return GBCS.toHex(bytes);
+    const year = (bytes[0] << 8) | bytes[1];
+    const month = bytes[2];
+    const day = bytes[3];
+    // bytes[4] = day of week
+    const hour = bytes[5];
+    const min = bytes[6];
+    const sec = bytes[7];
+    const hun = bytes[8];
+    const deviation = (bytes[9] << 8) | bytes[10]; // signed
+    const clockStatus = bytes[11];
+    if (year === 0xFFFF || year === 0) return 'Not set';
+    const pad = n => String(n).padStart(2, '0');
+    return `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(min)}:${pad(sec)} UTC`;
+  },
+
+  formatEntityId(bytes) {
+    // Entity Identifiers: first byte = type, next 7 bytes = identifier
+    if (bytes.length < 8) return GBCS.toHex(bytes);
+    const typeMap = {
+      0x09: 'ESME', 0x0A: 'GSME', 0x0B: 'CHF', 0x0C: 'GPF',
+      0x0D: 'PPMID', 0x0E: 'HCALCS', 0x10: 'Supplier',
+      0x11: 'Network Operator', 0x12: 'Access Control Broker',
+      0x13: 'WAN Provider', 0x14: 'Other User',
+    };
+    const type = typeMap[bytes[0]] || `Type 0x${bytes[0].toString(16).padStart(2,'0')}`;
+    const id = GBCS.toHexCompact(bytes.slice(1));
+    return `${type} (${id})`;
+  },
+
+  // ─── MAIN PARSE ─────────────────────────────────────────
+  parse(hexString) {
+    // Clean input
+    const clean = hexString.replace(/[\s,;:\-]+/g, '').replace(/0x/gi, '');
+    if (!/^[0-9a-fA-F]*$/.test(clean) || clean.length === 0) {
+      throw new Error('Invalid hex input — only hex characters (0-9, a-f) are accepted');
+    }
+    if (clean.length % 2 !== 0) {
+      throw new Error('Odd number of hex characters — each byte requires 2 hex digits');
+    }
+
+    const bytes = new Uint8Array(clean.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = parseInt(clean.substr(i * 2, 2), 16);
+    }
+
+    const result = {
+      bytes,
+      totalBytes: bytes.length,
+      fields: [],
+      summary: {},
+      messageType: null,
+      error: null,
+    };
+
+    let offset = 0;
+
+    // ── MAC HEADER (General-Ciphering wrapper) ───────────────
+    if (offset >= bytes.length) throw new Error('Empty message');
+
+    const hasMacHeader = bytes[offset] === GBCS.TAG_GENERAL_CIPHERING;
+
+    if (hasMacHeader) {
+      result.fields.push({ name: 'APDU Tag (General-Ciphering)', offset, length: 1, color: 'blue',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: '0xDD', desc: 'MAC Header — DLMS COSEM General-Ciphering tag (221 decimal)' });
+      offset++;
+
+      // transaction-id length (should be 0x00)
+      result.fields.push({ name: 'transaction-id (length)', offset, length: 1, color: 'blue',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `0x${bytes[offset].toString(16).padStart(2,'0')}`, desc: 'Length 0x00 — no transaction-id value in GBCS' });
+      offset++;
+
+      // originator-system-title length (should be 0x00)
+      result.fields.push({ name: 'originator-system-title (length)', offset, length: 1, color: 'blue',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `0x${bytes[offset].toString(16).padStart(2,'0')}`, desc: 'Length 0x00 — not used in GBCS MAC Header' });
+      offset++;
+
+      // recipient-system-title length (should be 0x00)
+      result.fields.push({ name: 'recipient-system-title (length)', offset, length: 1, color: 'blue',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `0x${bytes[offset].toString(16).padStart(2,'0')}`, desc: 'Length 0x00 — not used in GBCS MAC Header' });
+      offset++;
+
+      // date-time length (should be 0x00)
+      result.fields.push({ name: 'date-time (length)', offset, length: 1, color: 'blue',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `0x${bytes[offset].toString(16).padStart(2,'0')}`, desc: 'Length 0x00 — not used in GBCS MAC Header' });
+      offset++;
+
+      // other-information length (should be 0x00)
+      result.fields.push({ name: 'other-information (length)', offset, length: 1, color: 'blue',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `0x${bytes[offset].toString(16).padStart(2,'0')}`, desc: 'Length 0x00 — not used in GBCS MAC Header' });
+      offset++;
+
+      // key-info (should be 0x00)
+      result.fields.push({ name: 'key-info', offset, length: 1, color: 'blue',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `0x${bytes[offset].toString(16).padStart(2,'0')}`, desc: 'Key-info 0x00 — key info values not present in GBCS' });
+      offset++;
+
+      // ciphered-service length (BER encoded)
+      const lenResult = GBCS.parseLength(bytes, offset);
+      result.fields.push({ name: 'ciphered-service (length)', offset, length: lenResult.bytesUsed, color: 'blue',
+        hex: GBCS.toHex(bytes.slice(offset, offset + lenResult.bytesUsed)),
+        value: `${lenResult.length} bytes`, desc: 'BER-encoded length of ciphered-service content (security header + protected APDU + MAC)' });
+      offset += lenResult.bytesUsed;
+
+      // security control byte (should be 0x11)
+      const sc = bytes[offset];
+      const scBits = sc.toString(2).padStart(8, '0');
+      result.fields.push({ name: 'Security Control Byte (SC)', offset, length: 1, color: 'blue',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `0x${sc.toString(16).padStart(2,'0')} (${scBits}b)`,
+        desc: `Suite: ${sc & 0xF} | Auth: ${(sc>>4)&1} | Enc: ${(sc>>5)&1} | Broadcast: ${(sc>>6)&1}` });
+      offset++;
+
+      // Invocation Counter (4 bytes, should be 0x00000000)
+      const ic = bytes.slice(offset, offset + 4);
+      result.fields.push({ name: 'Invocation Counter (IC)', offset, length: 4, color: 'blue',
+        hex: GBCS.toHex(ic),
+        value: `0x${GBCS.toHexCompact(ic)}`, desc: 'Always 0x00000000 in GBCS — IV derived differently (per Section 8.4)' });
+      offset += 4;
+
+      result.summary['MAC Header'] = 'Present';
+    }
+
+    // ── GROUPING HEADER (General-Signing) ───────────────────
+    if (offset >= bytes.length) {
+      throw new Error('Message truncated after MAC Header');
+    }
+
+    if (bytes[offset] !== GBCS.TAG_GENERAL_SIGNING) {
+      throw new Error(`Expected General-Signing tag (0xDF) at offset ${offset}, found 0x${bytes[offset].toString(16).padStart(2,'0')}`);
+    }
+
+    result.fields.push({ name: 'APDU Tag (General-Signing)', offset, length: 1, color: 'green',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: '0xDF', desc: 'Grouping Header — DLMS COSEM General-Signing tag (223 decimal)' });
+    offset++;
+
+    // transaction-id in general-signing = CRA Flag || Originator Counter
+    // Length should be 0x09
+    const txLen = bytes[offset];
+    result.fields.push({ name: 'transaction-id (length)', offset, length: 1, color: 'green',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: `0x${txLen.toString(16).padStart(2,'0')} (${txLen} bytes)`, desc: 'Length of CRA Flag + Originator Counter = 9 bytes' });
+    offset++;
+
+    // CRA Flag (1 byte) + Originator Counter (8 bytes)
+    const craFlag = bytes[offset];
+    const craName = GBCS.CRA[craFlag] || `Unknown (0x${craFlag.toString(16)})`;
+    result.messageType = craName;
+    result.summary['Message Type'] = craName;
+    result.summary['CRA Flag'] = `0x0${craFlag} (${craName})`;
+
+    result.fields.push({ name: 'CRA Flag', offset, length: 1, color: 'green',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: `0x0${craFlag} — ${craName}`,
+      desc: '0x01 = Command · 0x02 = Response · 0x03 = Alert' });
+    offset++;
+
+    // Originator Counter (8 bytes)
+    const oc = bytes.slice(offset, offset + 8);
+    result.summary['Originator Counter'] = `0x${GBCS.toHexCompact(oc)}`;
+    result.fields.push({ name: 'Originator Counter', offset, length: 8, color: 'green',
+      hex: GBCS.toHex(oc),
+      value: `0x${GBCS.toHexCompact(oc)}`,
+      desc: 'Monotonically increasing counter — ensures message freshness and prevents replay attacks' });
+    offset += 8;
+
+    // originator-system-title = Business Originator ID
+    const origTitleLen = bytes[offset];
+    result.fields.push({ name: 'originator-system-title (length)', offset, length: 1, color: 'green',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: `0x${origTitleLen.toString(16).padStart(2,'0')} (${origTitleLen} bytes)`, desc: 'Length of Business Originator ID (always 8)' });
+    offset++;
+
+    const origId = bytes.slice(offset, offset + origTitleLen);
+    const origFormatted = GBCS.formatEntityId(origId);
+    result.summary['Originator ID'] = origFormatted;
+    result.fields.push({ name: 'Business Originator ID', offset, length: origTitleLen, color: 'green',
+      hex: GBCS.toHex(origId),
+      value: origFormatted,
+      desc: 'Entity Identifier of the message originator (see Section 4.3.1.1)' });
+    offset += origTitleLen;
+
+    // recipient-system-title = Business Target ID
+    const recipTitleLen = bytes[offset];
+    result.fields.push({ name: 'recipient-system-title (length)', offset, length: 1, color: 'green',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: `0x${recipTitleLen.toString(16).padStart(2,'0')} (${recipTitleLen} bytes)`, desc: 'Length of Business Target ID (always 8)' });
+    offset++;
+
+    const recipId = bytes.slice(offset, offset + recipTitleLen);
+    const recipFormatted = GBCS.formatEntityId(recipId);
+    result.summary['Target ID'] = recipFormatted;
+    result.fields.push({ name: 'Business Target ID', offset, length: recipTitleLen, color: 'green',
+      hex: GBCS.toHex(recipId),
+      value: recipFormatted,
+      desc: 'Entity Identifier of the message recipient (see Section 4.3.1.1)' });
+    offset += recipTitleLen;
+
+    // date-time
+    const dtLen = bytes[offset];
+    result.fields.push({ name: 'date-time (length)', offset, length: 1, color: 'green',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: dtLen === 0 ? '0x00 (not present)' : `0x${dtLen.toString(16).padStart(2,'0')} (${dtLen} bytes)`,
+      desc: '0x00 if date-time not required · 0x0C if 12-byte date-time present' });
+    offset++;
+
+    if (dtLen > 0) {
+      const dt = bytes.slice(offset, offset + dtLen);
+      const dtFormatted = GBCS.formatDateTime(dt);
+      result.summary['Date/Time'] = dtFormatted;
+      result.fields.push({ name: 'date-time value', offset, length: dtLen, color: 'green',
+        hex: GBCS.toHex(dt),
+        value: dtFormatted,
+        desc: 'DLMS date-time stamp (12 octets): year(2) month day dow hour min sec hun deviation(2) status' });
+      offset += dtLen;
+    }
+
+    // other-information = Message Code || (optional Supplementary fields)
+    const oiLenResult = GBCS.parseLength(bytes, offset);
+    result.fields.push({ name: 'other-information (length)', offset, length: oiLenResult.bytesUsed, color: 'amber',
+      hex: GBCS.toHex(bytes.slice(offset, offset + oiLenResult.bytesUsed)),
+      value: `${oiLenResult.length} bytes`, desc: 'BER length of other-information (Message Code + optional supplementary fields)' });
+    offset += oiLenResult.bytesUsed;
+
+    const oiEnd = offset + oiLenResult.length;
+
+    // Message Code (2 bytes)
+    if (offset + 1 < oiEnd) {
+      const msgCode = (bytes[offset] << 8) | bytes[offset + 1];
+      const msgName = GBCS.MESSAGE_CODES[msgCode] || `Unknown Use Case`;
+      result.summary['Message Code'] = `0x${msgCode.toString(16).padStart(4,'0').toUpperCase()} — ${msgName}`;
+      result.fields.push({ name: 'Message Code', offset, length: 2, color: 'amber',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 2)),
+        value: `0x${msgCode.toString(16).padStart(4,'0').toUpperCase()}`,
+        desc: `${msgName} (see Section 15 and Mapping Table)` });
+      offset += 2;
+    }
+
+    // Supplementary fields (if any remain)
+    if (offset < oiEnd) {
+      const suppBytes = bytes.slice(offset, oiEnd);
+      // Try to parse supplementary fields
+      let suppOff = 0;
+
+      // Supplementary Remote Party ID (8 bytes if present in alerts)
+      if (suppBytes.length >= 8) {
+        result.fields.push({ name: 'Supplementary Remote Party ID', offset: offset + suppOff, length: 8, color: 'amber',
+          hex: GBCS.toHex(suppBytes.slice(suppOff, suppOff + 8)),
+          value: GBCS.formatEntityId(suppBytes.slice(suppOff, suppOff + 8)),
+          desc: 'Supplementary Remote Party Entity Identifier (Section 4.3.1.4)' });
+        suppOff += 8;
+      }
+
+      if (suppBytes.length - suppOff >= 8) {
+        result.fields.push({ name: 'Supplementary Remote Party Counter', offset: offset + suppOff, length: 8, color: 'amber',
+          hex: GBCS.toHex(suppBytes.slice(suppOff, suppOff + 8)),
+          value: `0x${GBCS.toHexCompact(suppBytes.slice(suppOff, suppOff + 8))}`,
+          desc: 'Supplementary Remote Party Counter (Section 4.3.1.4)' });
+        suppOff += 8;
+      }
+
+      if (suppBytes.length - suppOff >= 8) {
+        result.fields.push({ name: 'Supplementary Originator Counter', offset: offset + suppOff, length: 8, color: 'amber',
+          hex: GBCS.toHex(suppBytes.slice(suppOff, suppOff + 8)),
+          value: `0x${GBCS.toHexCompact(suppBytes.slice(suppOff, suppOff + 8))}`,
+          desc: 'Supplementary Originator Counter (Section 4.3.1.4)' });
+      }
+
+      offset = oiEnd;
+    }
+
+    // Content length of payload
+    const contentLenResult = GBCS.parseLength(bytes, offset);
+    result.fields.push({ name: 'Payload content (length)', offset, length: contentLenResult.bytesUsed, color: 'purple',
+      hex: GBCS.toHex(bytes.slice(offset, offset + contentLenResult.bytesUsed)),
+      value: `${contentLenResult.length} bytes`, desc: 'BER length of the message payload' });
+    offset += contentLenResult.bytesUsed;
+
+    const payloadStart = offset;
+    const payloadEnd = offset + contentLenResult.length;
+
+    // ── PAYLOAD ──────────────────────────────────────────────
+    if (offset < bytes.length) {
+      const payloadTag = bytes[offset];
+
+      if (payloadTag === GBCS.TAG_ACCESS_REQUEST) {
+        // Command
+        result.fields.push({ section: 'Command Payload (DLMS COSEM Access-Request)' });
+        GBCS.parseCommandPayload(bytes, offset, payloadEnd, result);
+
+      } else if (payloadTag === GBCS.TAG_ACCESS_RESPONSE) {
+        // Response
+        result.fields.push({ section: 'Response Payload (DLMS COSEM Access-Response)' });
+        GBCS.parseResponsePayload(bytes, offset, payloadEnd, result);
+
+      } else if (payloadTag === GBCS.TAG_DATA_NOTIFICATION) {
+        // Alert
+        result.fields.push({ section: 'Alert Payload (DLMS COSEM Data-Notification)' });
+        GBCS.parseAlertPayload(bytes, offset, payloadEnd, result);
+
+      } else {
+        // Unknown payload
+        result.fields.push({ name: 'Payload (unknown type)', offset, length: payloadEnd - offset, color: 'purple',
+          hex: GBCS.toHex(bytes.slice(offset, Math.min(offset + 32, payloadEnd))) + (payloadEnd - offset > 32 ? ' ...' : ''),
+          value: `Tag 0x${payloadTag.toString(16).padStart(2,'0')} (unrecognised)`,
+          desc: 'Not a standard DLMS COSEM Command/Response/Alert — may be GBZ or ASN.1 payload' });
+        offset = payloadEnd;
+      }
+      offset = payloadEnd;
+    }
+
+    // ── SIGNATURE / MAC ──────────────────────────────────────
+    if (offset < bytes.length) {
+      const sigLenByte = bytes[offset];
+      result.fields.push({ section: hasMacHeader ? 'MAC' : 'Signature' });
+
+      if (sigLenByte === 0x40) {
+        // 64-byte ECDSA signature present
+        result.fields.push({ name: 'Signature Length', offset, length: 1, color: 'cyan',
+          hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+          value: '0x40 (64 bytes)', desc: '64-byte ECDSA P-256 signature present (R || S format)' });
+        offset++;
+
+        if (offset + 64 <= bytes.length) {
+          const sig = bytes.slice(offset, offset + 64);
+          result.summary['Signature'] = 'ECDSA-P256 (64 bytes)';
+          result.fields.push({ name: 'ECDSA Signature (R || S)', offset, length: 64, color: 'cyan',
+            hex: GBCS.toHex(sig.slice(0, 8)) + ' ... ' + GBCS.toHex(sig.slice(56)),
+            value: `R: ${GBCS.toHexCompact(sig.slice(0, 4))}... S: ${GBCS.toHexCompact(sig.slice(32, 36))}...`,
+            desc: 'Plain-format ECDSA signature: 32-byte R || 32-byte S (Section 12)' });
+          offset += 64;
+        }
+
+      } else if (sigLenByte === 0x00) {
+        result.fields.push({ name: 'Signature/MAC Type', offset, length: 1, color: 'cyan',
+          hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+          value: '0x00 — MAC follows (no KRP/SMD signature)', desc: 'No ECDSA signature; GMAC authentication tag follows' });
+        offset++;
+
+        // ACB-SMD MAC or SMD-KRP MAC (12 bytes)
+        if (offset + 12 <= bytes.length) {
+          const mac = bytes.slice(offset, offset + 12);
+          result.summary['MAC'] = `0x${GBCS.toHexCompact(mac)}`;
+          result.fields.push({ name: 'GMAC Authentication Tag', offset, length: 12, color: 'cyan',
+            hex: GBCS.toHex(mac),
+            value: `0x${GBCS.toHexCompact(mac)}`,
+            desc: 'GMAC (GCM-based MAC) — 96-bit authentication tag for message integrity (Section 4.3.3)' });
+          offset += 12;
+        }
+      }
+    }
+
+    result.summary['Total Bytes'] = `${bytes.length}`;
+    return result;
+  },
+
+  parseCommandPayload(bytes, start, end, result) {
+    let offset = start;
+
+    result.fields.push({ name: 'APDU Tag (access-request)', offset, length: 1, color: 'purple',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: '0xD9', desc: 'DLMS COSEM access-request tag (217 decimal)' });
+    offset++;
+
+    // long-invoke-id-and-priority (4 bytes)
+    const liap = bytes.slice(offset, offset + 4);
+    const invokeId = ((liap[1] & 0x0F) << 16) | (liap[2] << 8) | liap[3];
+    const priority = (liap[0] >> 7) & 1;
+    const serviceClass = (liap[0] >> 6) & 1;
+    const processingOption = (liap[0] >> 5) & 1;
+    result.fields.push({ name: 'long-invoke-id-and-priority', offset, length: 4, color: 'purple',
+      hex: GBCS.toHex(liap),
+      value: `Invoke ID: ${invokeId} | Priority: ${priority ? 'High' : 'Normal'} | Break-on-error: ${processingOption}`,
+      desc: 'Bits 31-28: flags | Bits 23-0: least-significant 24 bits of Originator Counter' });
+    offset += 4;
+
+    // date-time (should be 0x00)
+    result.fields.push({ name: 'date-time (length)', offset, length: 1, color: 'purple',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: '0x00 — not present', desc: 'Date-time not used in access-request' });
+    offset++;
+
+    // access-request-body > access-request-specification
+    if (offset < end) {
+      const seqCount = bytes[offset];
+      result.fields.push({ name: 'access-request-specification (count)', offset, length: 1, color: 'purple',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `${seqCount} instruction(s)`, desc: 'Number of Get, Set or Action instructions in this command' });
+      offset++;
+
+      // Parse each access-request item
+      for (let i = 0; i < seqCount && offset < end - 10; i++) {
+        const tag = bytes[offset];
+        const tagName = tag === 0x01 ? 'GetRequest' : tag === 0x02 ? 'SetRequest' : tag === 0x03 ? 'ActionRequest' : `Tag 0x${tag.toString(16)}`;
+        result.fields.push({ name: `Instruction ${i+1}: ${tagName}`, offset, length: 1, color: 'purple',
+          hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+          value: `0x${tag.toString(16).padStart(2,'0')} — ${tagName}`,
+          desc: '0x01=Get · 0x02=Set · 0x03=Action' });
+        offset++;
+
+        // skip block-number (2 bytes)
+        if (offset + 2 <= end) {
+          result.fields.push({ name: `  Block Number`, offset, length: 2, color: 'purple',
+            hex: GBCS.toHex(bytes.slice(offset, offset + 2)),
+            value: `${(bytes[offset] << 8) | bytes[offset+1]}`,
+            desc: 'Access-request block number' });
+          offset += 2;
+        }
+
+        // class-id (2 bytes)
+        if (offset + 2 <= end) {
+          const classId = (bytes[offset] << 8) | bytes[offset + 1];
+          const className = GBCS.COSEM_CLASSES[classId] || 'Unknown Class';
+          result.fields.push({ name: `  Class-ID`, offset, length: 2, color: 'purple',
+            hex: GBCS.toHex(bytes.slice(offset, offset + 2)),
+            value: `${classId} — ${className}`,
+            desc: 'COSEM interface class identifier (Blue Book)' });
+          offset += 2;
+        }
+
+        // OBIS code (6 bytes)
+        if (offset + 6 <= end) {
+          const obis = bytes.slice(offset, offset + 6);
+          const obisStr = Array.from(obis).join('.');
+          result.fields.push({ name: `  OBIS Code`, offset, length: 6, color: 'purple',
+            hex: GBCS.toHex(obis),
+            value: obisStr,
+            desc: 'COSEM logical name / OBIS code (A.B.C.D.E.F)' });
+          offset += 6;
+        }
+
+        // attribute-id (1 byte)
+        if (offset < end) {
+          result.fields.push({ name: `  Attribute-ID`, offset, length: 1, color: 'purple',
+            hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+            value: `${bytes[offset]}`,
+            desc: 'COSEM attribute number (0=object name, 1=value, 2=scaler_unit, etc.)' });
+          offset++;
+        }
+
+        // access-selection (1 byte, 0x00 = no selection)
+        if (offset < end) {
+          const sel = bytes[offset];
+          result.fields.push({ name: `  Access Selection`, offset, length: 1, color: 'purple',
+            hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+            value: sel === 0x00 ? '0x00 — No selection' : `0x${sel.toString(16)} — Selection present`,
+            desc: '0x00 = entire attribute, other = selected range/entries' });
+          offset++;
+        }
+      }
+
+      // list-of-data count
+      if (offset < end) {
+        result.fields.push({ name: 'access-request-list-of-data (count)', offset, length: 1, color: 'purple',
+          hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+          value: `${bytes[offset]} data value(s)`, desc: 'Number of data values for Set instructions' });
+        offset++;
+      }
+    }
+  },
+
+  parseResponsePayload(bytes, start, end, result) {
+    let offset = start;
+
+    result.fields.push({ name: 'APDU Tag (access-response)', offset, length: 1, color: 'purple',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: '0xDA', desc: 'DLMS COSEM access-response tag (218 decimal)' });
+    offset++;
+
+    const liap = bytes.slice(offset, offset + 4);
+    result.fields.push({ name: 'long-invoke-id-and-priority', offset, length: 4, color: 'purple',
+      hex: GBCS.toHex(liap),
+      value: `Invoke ID mirrors Command`,
+      desc: 'Originator Counter echoed from corresponding Command' });
+    offset += 4;
+
+    // date-time
+    result.fields.push({ name: 'date-time (length)', offset, length: 1, color: 'purple',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: '0x00 — not present', desc: 'Date-time not used in access-response' });
+    offset++;
+
+    // access-response-body
+    // access-request-specification OPTIONAL (should be 0x00)
+    if (offset < end) {
+      result.fields.push({ name: 'access-request-specification (optional)', offset, length: 1, color: 'purple',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: bytes[offset] === 0 ? '0x00 — not present' : `Present (0x${bytes[offset].toString(16)})`,
+        desc: 'OPTIONAL — 0x00 means not present per GBCS Table 7.2.9b' });
+      offset++;
+    }
+
+    // list-of-data
+    if (offset < end) {
+      const dataCount = bytes[offset];
+      result.fields.push({ name: 'list-of-data (count)', offset, length: 1, color: 'purple',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `${dataCount} data value(s)`, desc: 'Number of response data attributes' });
+      offset++;
+
+      for (let i = 0; i < dataCount && offset < end - 1; i++) {
+        const dataTag = bytes[offset];
+        const dataTypeName = GBCS.DATA_TAGS[dataTag] || `unknown-0x${dataTag.toString(16)}`;
+        result.fields.push({ name: `  Data[${i}] Tag`, offset, length: 1, color: 'purple',
+          hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+          value: `0x${dataTag.toString(16).padStart(2,'0')} — ${dataTypeName}`,
+          desc: 'DLMS COSEM Data type tag' });
+        offset++;
+
+        // Parse value based on type
+        const parsed = GBCS.parseDataValue(bytes, offset, end, dataTypeName, dataTag);
+        if (parsed) {
+          result.fields.push({ name: `  Data[${i}] Value`, offset: parsed.offset, length: parsed.length, color: 'purple',
+            hex: parsed.hex, value: parsed.value, desc: parsed.desc });
+          offset = parsed.offset + parsed.length;
+        }
+      }
+    }
+
+    // access-response-specification
+    if (offset < end) {
+      const specCount = bytes[offset];
+      result.fields.push({ name: 'access-response-specification (count)', offset, length: 1, color: 'purple',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `${specCount} result(s)`, desc: 'Number of result codes (one per instruction in Command)' });
+      offset++;
+
+      for (let i = 0; i < specCount && offset < end; i++) {
+        const choiceTag = bytes[offset]; offset++;
+        const resultCode = bytes[offset]; offset++;
+        const resultName = resultCode === 0 ? 'success' : 
+                           resultCode === 1 ? 'hardware-fault' :
+                           resultCode === 3 ? 'read-write-denied' :
+                           resultCode === 250 ? 'other-reason' : `code-${resultCode}`;
+        result.fields.push({ name: `  Result[${i}]`, offset: offset - 2, length: 2, color: 'purple',
+          hex: GBCS.toHex(bytes.slice(offset - 2, offset)),
+          value: `${resultName} (${resultCode})`,
+          desc: 'Data-Access-Result: 0=success, 1=hardware-fault, 3=read-write-denied, 250=other-reason' });
+      }
+    }
+  },
+
+  parseAlertPayload(bytes, start, end, result) {
+    let offset = start;
+
+    result.fields.push({ name: 'APDU Tag (data-notification)', offset, length: 1, color: 'purple',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: '0x0F', desc: 'DLMS COSEM data-notification tag (15 decimal)' });
+    offset++;
+
+    const liap = bytes.slice(offset, offset + 4);
+    result.fields.push({ name: 'long-invoke-id-and-priority', offset, length: 4, color: 'purple',
+      hex: GBCS.toHex(liap),
+      value: `0x${GBCS.toHexCompact(liap)}`,
+      desc: 'Bits 23-0: least-significant 24 bits of Originator Counter' });
+    offset += 4;
+
+    result.fields.push({ name: 'date-time (length)', offset, length: 1, color: 'purple',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: '0x00 — not present', desc: '' });
+    offset++;
+
+    // notification-body > Structure tag
+    result.fields.push({ name: 'Structure tag', offset, length: 1, color: 'purple',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: `0x${bytes[offset].toString(16)} (structure)`, desc: 'DLMS structure type tag 0x02' });
+    offset++;
+
+    const structCount = bytes[offset];
+    result.fields.push({ name: 'Structure element count', offset, length: 1, color: 'purple',
+      hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+      value: `${structCount}`, desc: '≥2 (Alert Code + Timestamp + optional use-case data)' });
+    offset++;
+
+    // Alert Code (tag 0x12 + 2 bytes)
+    if (offset < end) {
+      result.fields.push({ name: 'Alert Code Tag', offset, length: 1, color: 'red',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `0x${bytes[offset].toString(16).padStart(2,'0')} (long-unsigned)`, desc: '' });
+      offset++;
+      if (offset + 2 <= end) {
+        const alertCode = (bytes[offset] << 8) | bytes[offset + 1];
+        const alertName = GBCS.MESSAGE_CODES[alertCode] || `Alert 0x${alertCode.toString(16).padStart(4,'0').toUpperCase()}`;
+        result.summary['Alert Code'] = `0x${alertCode.toString(16).padStart(4,'0').toUpperCase()} — ${alertName}`;
+        result.fields.push({ name: 'Alert Code', offset, length: 2, color: 'red',
+          hex: GBCS.toHex(bytes.slice(offset, offset + 2)),
+          value: `0x${alertCode.toString(16).padStart(4,'0').toUpperCase()} — ${alertName}`,
+          desc: 'Event/Alert Code as defined in Table 16.2' });
+        offset += 2;
+      }
+    }
+
+    // Timestamp (tag 0x09 + length 0x0C + 12 bytes)
+    if (offset < end) {
+      result.fields.push({ name: 'Timestamp Tag', offset, length: 1, color: 'purple',
+        hex: GBCS.toHex(bytes.slice(offset, offset + 1)),
+        value: `0x${bytes[offset].toString(16).padStart(2,'0')} (octet-string)`, desc: '' });
+      offset++;
+      if (offset < end) {
+        const tsLen = bytes[offset]; offset++;
+        if (tsLen > 0 && offset + tsLen <= end) {
+          const ts = bytes.slice(offset, offset + tsLen);
+          const tsFormatted = GBCS.formatDateTime(ts);
+          result.summary['Alert Time'] = tsFormatted;
+          result.fields.push({ name: 'Timestamp (UTC)', offset, length: tsLen, color: 'purple',
+            hex: GBCS.toHex(ts),
+            value: tsFormatted,
+            desc: 'UTC timestamp of the event (DLMS date-time, 12 octets)' });
+          offset += tsLen;
+        }
+      }
+    }
+  },
+
+  parseDataValue(bytes, offset, end, typeName, tag) {
+    if (offset >= end) return null;
+    switch (tag) {
+      case 0x00: return { offset, length: 0, hex: '', value: 'null', desc: '' };
+      case 0x03: { // boolean
+        const v = bytes[offset];
+        return { offset, length: 1, hex: GBCS.toHex(bytes.slice(offset, offset+1)), value: v ? 'true' : 'false', desc: 'boolean' };
+      }
+      case 0x11: { // unsigned (1 byte)
+        return { offset, length: 1, hex: GBCS.toHex(bytes.slice(offset, offset+1)), value: `${bytes[offset]}`, desc: 'unsigned (8-bit)' };
+      }
+      case 0x12: { // long-unsigned (2 bytes)
+        const v = (bytes[offset] << 8) | bytes[offset+1];
+        return { offset, length: 2, hex: GBCS.toHex(bytes.slice(offset, offset+2)), value: `${v}`, desc: 'long-unsigned (16-bit)' };
+      }
+      case 0x10: { // long (2 bytes signed)
+        let v = (bytes[offset] << 8) | bytes[offset+1];
+        if (v > 0x7FFF) v -= 0x10000;
+        return { offset, length: 2, hex: GBCS.toHex(bytes.slice(offset, offset+2)), value: `${v}`, desc: 'long (16-bit signed)' };
+      }
+      case 0x05: case 0x06: { // double-long (4 bytes)
+        const v = (bytes[offset]<<24)|(bytes[offset+1]<<16)|(bytes[offset+2]<<8)|bytes[offset+3];
+        return { offset, length: 4, hex: GBCS.toHex(bytes.slice(offset, offset+4)), value: `${v >>> 0}`, desc: 'double-long (32-bit)' };
+      }
+      case 0x14: case 0x15: { // long64 (8 bytes)
+        const slice = bytes.slice(offset, offset+8);
+        return { offset, length: 8, hex: GBCS.toHex(slice), value: `0x${GBCS.toHexCompact(slice)}`, desc: 'long64 (64-bit)' };
+      }
+      case 0x09: { // octet-string
+        if (offset >= end) return null;
+        const lenR = GBCS.parseLength(bytes, offset);
+        const start2 = offset + lenR.bytesUsed;
+        const len = lenR.length;
+        const slice = bytes.slice(start2, start2 + len);
+        let val = GBCS.toHex(slice);
+        if (len === 12) val = GBCS.formatDateTime(slice);
+        return { offset, length: lenR.bytesUsed + len, hex: GBCS.toHex(bytes.slice(offset, offset + lenR.bytesUsed + len)), value: val, desc: `octet-string (${len} bytes)` };
+      }
+      case 0x0A: { // visible-string
+        if (offset >= end) return null;
+        const lenR = GBCS.parseLength(bytes, offset);
+        const start2 = offset + lenR.bytesUsed;
+        const slice = bytes.slice(start2, start2 + lenR.length);
+        const str = String.fromCharCode(...slice);
+        return { offset, length: lenR.bytesUsed + lenR.length, hex: GBCS.toHex(bytes.slice(offset, offset + lenR.bytesUsed + lenR.length)), value: `"${str}"`, desc: 'visible-string' };
+      }
+      case 0x16: { // enum
+        return { offset, length: 1, hex: GBCS.toHex(bytes.slice(offset, offset+1)), value: `enum(${bytes[offset]})`, desc: 'enum (8-bit)' };
+      }
+      case 0x02: case 0x01: { // structure / array
+        if (offset >= end) return null;
+        const count = bytes[offset];
+        return { offset, length: 1, hex: GBCS.toHex(bytes.slice(offset, offset+1)), value: `${count} element(s)`, desc: typeName };
+      }
+      default:
+        return null;
+    }
+  },
+};
+
+// ═══════════════════════════════════════════════════════════
+//  UI
+// ═══════════════════════════════════════════════════════════
+
+const COLORS = {
+  blue: '#3d8ef0', green: '#3dbb7d', amber: '#f0a033',
+  purple: '#9b7af0', cyan: '#3dd4d4', red: '#e05f5f'
+};
+
+const SECTION_COLORS = {
+  'MAC Header': 'blue',
+  'Grouping Header': 'green',
+  'Command Payload': 'purple',
+  'Response Payload': 'purple',
+  'Alert Payload': 'purple',
+  'Message Code': 'amber',
+  'Supplementary': 'amber',
+  'Signature': 'cyan',
+  'MAC': 'cyan',
+};
+
+let currentResult = null;
+let activeFieldIdx = null;
+
+function colorForField(f) {
+  return f.color || 'blue';
+}
+
+function parse() {
+  const hex = document.getElementById('hexInput').value;
+  if (!hex.trim()) return;
+
+  try {
+    currentResult = GBCS.parse(hex);
+    renderResults(currentResult);
+  } catch (e) {
+    renderError(e.message);
+  }
+}
+
+function renderError(msg) {
+  document.getElementById('resultsArea').style.display = 'grid';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('statusDot').className = 'status-dot err';
+  document.getElementById('byteCount').textContent = 'Error';
+  document.getElementById('treeBody').innerHTML = '';
+  document.getElementById('summaryGrid').innerHTML = '';
+  document.getElementById('errorPanel').textContent = '⚠ Parse error: ' + msg;
+  document.getElementById('errorPanel').style.display = 'block';
+  document.getElementById('detailBody').innerHTML = '<div class="empty-state"><div class="empty-text">Fix the error above to see field details</div></div>';
+  document.getElementById('hexViewerBody').innerHTML = '';
+  document.getElementById('hexLegend').innerHTML = '';
+}
+
+function renderResults(r) {
+  document.getElementById('resultsArea').style.display = 'grid';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('errorPanel').style.display = 'none';
+  document.getElementById('statusDot').className = 'status-dot ok';
+  document.getElementById('byteCount').textContent = `${r.totalBytes}B`;
+
+  // Assign section labels
+  let currentSection = 'MAC Header';
+  r.fields.forEach(f => {
+    if (f.section) { currentSection = f.section; return; }
+    if (!f._section) f._section = currentSection;
+  });
+
+  renderTree(r);
+  renderSummary(r);
+  renderHexViewer(r);
+  renderFieldTable(r, null);
+}
+
+function renderTree(r) {
+  const container = document.getElementById('treeBody');
+  let html = '';
+  let lastSection = '';
+
+  r.fields.forEach((f, i) => {
+    if (f.section) {
+      html += `<div class="tree-section">${f.section}</div>`;
+      lastSection = f.section;
+      return;
+    }
+    const color = colorForField(f);
+    html += `<div class="tree-item" onclick="selectField(${i})" data-idx="${i}">
+      <div class="tree-dot" style="background:${COLORS[color]}"></div>
+      <span class="tree-name" title="${f.name}">${f.name}</span>
+      <span class="tree-bytes">${f.length}B</span>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function renderSummary(r) {
+  const grid = document.getElementById('summaryGrid');
+  const colorMap = {
+    'Message Type': craToColor(r.messageType),
+    'MAC Header': 'blue',
+    'Originator ID': 'green',
+    'Target ID': 'green',
+    'Originator Counter': 'green',
+    'Message Code': 'amber',
+    'Date/Time': 'amber',
+    'Signature': 'cyan',
+    'MAC': 'cyan',
+    'Alert Code': 'red',
+    'Alert Time': 'purple',
+    'Total Bytes': 'blue',
+  };
+
+  let html = '';
+  for (const [k, v] of Object.entries(r.summary)) {
+    const color = colorMap[k] || 'blue';
+    const short = v.length > 40 ? v.slice(0, 38) + '…' : v;
+    html += `<div class="summary-card ${color} fade-in">
+      <div class="card-label">${k}</div>
+      <div class="card-value" title="${v}">${short}</div>
+    </div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function craToColor(t) {
+  if (t === 'Command') return 'blue';
+  if (t === 'Response') return 'green';
+  if (t === 'Alert') return 'amber';
+  return 'blue';
+}
+
+function renderFieldTable(r, activeIdx) {
+  const body = document.getElementById('detailBody');
+  const title = document.getElementById('detailTitle');
+
+  if (activeIdx !== null) {
+    // Show single field detail
+    const f = r.fields[activeIdx];
+    if (!f || f.section) return;
+    title.textContent = f.name;
+    body.innerHTML = `<table class="field-table">
+      <tr><th>Property</th><th>Value</th></tr>
+      <tr><td class="td-name">Field</td><td class="td-value">${f.name}</td></tr>
+      <tr><td class="td-name">Offset</td><td class="td-value">${f.offset} (0x${f.offset.toString(16).padStart(4,'0').toUpperCase()})</td></tr>
+      <tr><td class="td-name">Length</td><td class="td-value">${f.length} byte${f.length !== 1 ? 's' : ''}</td></tr>
+      <tr><td class="td-name">Hex</td><td class="td-hex" style="word-break:break-all">${f.hex}</td></tr>
+      <tr><td class="td-name">Value</td><td class="td-value">${f.value}</td></tr>
+      ${f.desc ? `<tr><td class="td-name">Description</td><td class="td-desc">${f.desc}</td></tr>` : ''}
+    </table>`;
+  } else {
+    // Show all fields
+    title.textContent = 'All Fields';
+    let html = `<table class="field-table">
+      <tr><th>Field</th><th>Offset</th><th>Len</th><th>Hex</th><th>Value</th></tr>`;
+    r.fields.forEach((f, i) => {
+      if (f.section) {
+        html += `<tr><td colspan="5" style="padding:10px 8px 4px;font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-dim)">${f.section}</td></tr>`;
+        return;
+      }
+      const color = colorForField(f);
+      html += `<tr onclick="selectField(${i})" style="cursor:pointer">
+        <td class="td-name">${f.name}</td>
+        <td class="td-offset">${f.offset}</td>
+        <td class="td-len">${f.length}</td>
+        <td class="td-hex" style="color:${COLORS[color]};word-break:break-all;max-width:200px">${f.hex.length > 40 ? f.hex.slice(0,38)+'...' : f.hex}</td>
+        <td class="td-value">${f.value.length > 50 ? f.value.slice(0,48)+'...' : f.value}</td>
+      </tr>`;
+    });
+    html += '</table>';
+    body.innerHTML = html;
+  }
+}
+
+function selectField(idx) {
+  activeFieldIdx = idx;
+
+  // Update tree selection
+  document.querySelectorAll('.tree-item').forEach(el => el.classList.remove('active'));
+  const treeItem = document.querySelector(`.tree-item[data-idx="${idx}"]`);
+  if (treeItem) { treeItem.classList.add('active'); treeItem.scrollIntoView({block:'nearest'}); }
+
+  // Update detail panel
+  renderFieldTable(currentResult, idx);
+
+  // Update hex viewer highlight
+  renderHexViewer(currentResult, idx);
+}
+
+function renderHexViewer(r, activeIdx) {
+  const body = document.getElementById('hexViewerBody');
+  const legend = document.getElementById('hexLegend');
+  const bytes = r.bytes;
+
+  // Build color map for each byte
+  const byteColors = new Array(bytes.length).fill(null);
+  r.fields.forEach(f => {
+    if (f.section || !f.offset && f.offset !== 0) return;
+    for (let i = f.offset; i < f.offset + f.length && i < bytes.length; i++) {
+      byteColors[i] = f.color || 'blue';
+    }
+  });
+
+  // Build hex rows (16 bytes per row)
+  let html = '';
+  const BYTES_PER_ROW = 16;
+  for (let row = 0; row < bytes.length; row += BYTES_PER_ROW) {
+    const offset = row;
+    html += `<div class="hex-row">
+      <span class="hex-offset">${offset.toString(16).padStart(4,'0').toUpperCase()}</span>
+      <div class="hex-bytes">`;
+
+    for (let i = row; i < Math.min(row + BYTES_PER_ROW, bytes.length); i++) {
+      const color = byteColors[i] ? `highlight-${byteColors[i]}` : '';
+      const isActive = activeIdx !== null && currentResult &&
+        currentResult.fields[activeIdx] &&
+        i >= currentResult.fields[activeIdx].offset &&
+        i < currentResult.fields[activeIdx].offset + currentResult.fields[activeIdx].length;
+      const activeStyle = isActive ? 'outline:1px solid rgba(255,255,255,0.4);' : '';
+      html += `<span class="hex-byte ${color}" style="${activeStyle}" title="Byte ${i}: 0x${bytes[i].toString(16).padStart(2,'0').toUpperCase()}">${bytes[i].toString(16).padStart(2,'0').toUpperCase()}</span>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  body.innerHTML = html;
+
+  // Legend
+  const usedColors = [...new Set(r.fields.filter(f => f.color).map(f => f.color))];
+  const colorLabels = { blue: 'MAC Header', green: 'Grouping Header', amber: 'Message Code / Supplementary', purple: 'Payload', cyan: 'Signature / MAC', red: 'Alert Code' };
+  legend.innerHTML = usedColors.map(c => `<div class="legend-item">
+    <div class="legend-dot" style="background:${COLORS[c]}"></div>
+    ${colorLabels[c] || c}
+  </div>`).join('');
+}
+
+function clearInput() {
+  document.getElementById('hexInput').value = '';
+  document.getElementById('resultsArea').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'grid';
+}
+
+const EXAMPLES = {
+  command: 'DD 00 00 00 00 00 00 11 00000000 DF 09 01 00 00 00 00 00 00 00 00 08 90 B3 D5 1F 30 10 00 08 90 B3 D5 1F 30 10 01 00 09 06 01 01 00 00 00 00 D9 20 00 00 00 01 00 00 01 01 01 0F 00 00 01 00 01 00 00 00 00',
+  response: 'DD 00 00 00 00 00 00 11 00000000 DF 09 02 00 00 00 00 00 00 00 00 08 90 B3 D5 1F 30 10 01 08 90 B3 D5 1F 30 10 00 00 09 06 01 01 00 00 00 00 DA 20 00 00 00 02 00 00 01 09 0C 07 E5 01 0F 03 0A 00 00 00 00 80 00 FF 01 00 00',
+  alert:    'DF 09 03 00 00 00 00 00 00 00 00 08 90 B3 D5 1F 30 10 01 08 90 B3 D5 1F 30 10 00 00 09 06 08 00 00 00 07 0F 20 00 00 00 03 00 02 02 12 00 01 09 0C 07 E5 01 0F 03 0A 00 00 00 00 80 00 FF 00',
+};
+
+function loadExample(type) {
+  document.getElementById('hexInput').value = EXAMPLES[type];
+  parse();
+}
+</script>
+</body>
+</html>
